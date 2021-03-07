@@ -1,4 +1,4 @@
-module github.com/codefresh-io/go-template
+module github.com/codefresh-io/gitops-agent
 
 go 1.15
 

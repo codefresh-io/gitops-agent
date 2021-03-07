@@ -1,8 +1,8 @@
 package root
 
 import (
-	"github.com/codefresh-io/go-template/cmd/version"
-	"github.com/codefresh-io/go-template/pkg/store"
+	"github.com/codefresh-io/gitops-agent/cmd/version"
+	"github.com/codefresh-io/gitops-agent/pkg/store"
 	"github.com/codefresh-io/pkg/helpers"
 	"github.com/spf13/cobra"
 )

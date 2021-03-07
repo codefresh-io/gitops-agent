@@ -1,7 +1,7 @@
 package version
 
 import (
-	"github.com/codefresh-io/go-template/pkg/store"
+	"github.com/codefresh-io/gitops-agent/pkg/store"
 	"github.com/codefresh-io/pkg/log"
 	"github.com/spf13/cobra"
 )

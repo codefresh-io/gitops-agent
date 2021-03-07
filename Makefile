@@ -1,6 +1,6 @@
 # change these:
 VERSION=v0.0.1
-BIN_NAME=BINARY_NAME
+BIN_NAME=gitops-agent
 
 OUT_DIR=dist
 GIT_COMMIT=$(shell git rev-parse HEAD)

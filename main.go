@@ -4,7 +4,7 @@ import (
 	"context"
 	"syscall"
 
-	"github.com/codefresh-io/go-template/cmd/root"
+	"github.com/codefresh-io/gitops-agent/cmd/root"
 	"github.com/codefresh-io/pkg/helpers"
 	"github.com/codefresh-io/pkg/log"
 	"github.com/sirupsen/logrus"
