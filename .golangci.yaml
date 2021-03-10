@@ -17,6 +17,8 @@ linters:
     - gocyclo
     - errcheck
     - godox
+    - wsl
+
 # all available settings of specific linters
 linters-settings:
   errcheck:

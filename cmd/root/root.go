@@ -1,6 +1,7 @@
 package root
 
 import (
+	"github.com/codefresh-io/gitops-agent/cmd/start"
 	"github.com/codefresh-io/gitops-agent/cmd/version"
 	"github.com/codefresh-io/gitops-agent/pkg/store"
 	"github.com/codefresh-io/pkg/helpers"
@@ -21,6 +22,7 @@ func New() *cobra.Command {
 	}
 
 	cmd.AddCommand(version.New())
+	cmd.AddCommand(start.New())
 
 	return cmd
 }

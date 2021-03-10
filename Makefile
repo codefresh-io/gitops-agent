@@ -1,6 +1,7 @@
 # change these:
 VERSION=v0.0.1
 BIN_NAME=gitops-agent
+BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 
 OUT_DIR=dist
 GIT_COMMIT=$(shell git rev-parse HEAD)
@@ -15,6 +16,7 @@ build:
 	@ OUT_DIR=$(OUT_DIR) \
 		BIN_NAME=$(BIN_NAME) \
 		VERSION=$(VERSION) \
+		BUILD_DATE=$(BUILD_DATE) \
 		GIT_COMMIT=$(GIT_COMMIT) \
 		./hack/build.sh
 
@@ -42,16 +44,23 @@ lint: $(GOPATH)/bin/golangci-lint
 test:
 	./hack/test.sh
 
-.PHONY: codegen
-codegen: $(GOPATH)/bin/mockery $(GOPATH)/bin/kitgen
+.PHONY: codegen 
+codegen: $(GOPATH)/bin/mockery $(GOPATH)/bin/kitgen gen-protos
 	go generate ./...
+
+.PHONY: gen-protos
+gen-protos: $(GOPATH)/bin/buf
+	BIN_NAME=$(BIN_NAME) \
+	VERSION=$(VERSION) \
+	./hack/proto_generate.sh
 
 .PHONY: pre-commit
 pre-commit: lint build codegen test
 
 .PHONY: clean
 clean:
-	@rm -rf dist
+	@rm -rf dist || true
+	@rm -rf vendor || true
 
 $(GOPATH)/bin/mockery:
 	@curl -L -o dist/mockery.tar.gz -- https://github.com/vektra/mockery/releases/download/v1.1.1/mockery_1.1.1_$(shell uname -s)_$(shell uname -m).tar.gz
@@ -64,7 +73,19 @@ $(GOPATH)/bin/mockery:
 $(GOPATH)/bin/golangci-lint:
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b `go env GOPATH`/bin v1.36.0
 
-$(GOPATH)/bin/kitgen:
-	go get github.com/nyarly/inlinefiles
-	go get -u github.com/go-kit/kit
-	go install github.com/go-kit/kit/cmd/kitgen
+$(GOPATH)/bin/buf: $(GOPATH)/bin/protoc-gen-grpc-gateway $(GOPATH)/bin/protoc-gen-openapiv2 $(GOPATH)/bin/protoc-gen-gogofast $(GOPATH)/bin/protoc-gen-go-grpc
+	$(eval BUF_TMP := $(shell mktemp -d))
+	cd $(BUF_TMP); GO111MODULE=on go get github.com/bufbuild/buf/cmd/buf@v0.39.1
+	@rm -rf $(BUF_TMP)
+
+$(GOPATH)/bin/protoc-gen-grpc-gateway:
+	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
+
+$(GOPATH)/bin/protoc-gen-openapiv2:
+	go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
+
+$(GOPATH)/bin/protoc-gen-gogofast:
+	go install github.com/gogo/protobuf/protoc-gen-gogofast
+
+$(GOPATH)/bin/protoc-gen-go-grpc:
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc

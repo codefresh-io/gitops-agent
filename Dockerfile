@@ -41,4 +41,4 @@ USER gitops-agent:gitops-agent
 
 ENTRYPOINT [ "gitops-agent" ]
 
-CMD [ "version" ]
+CMD [ "start" ]

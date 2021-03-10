@@ -28,8 +28,10 @@ func New() *cobra.Command {
 
 func showVersion(opts *options) {
 	version := store.Get().Version
+
 	if opts.long {
 		log.G().Printf("Version: %s", version.Version)
+		log.G().Printf("BuildDate: %s", version.BuildDate)
 		log.G().Printf("GitCommit: %s", version.GitCommit)
 		log.G().Printf("GoVersion: %s", version.GoVersion)
 		log.G().Printf("Platform: %s", version.Platform)
