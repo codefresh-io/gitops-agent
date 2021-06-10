@@ -1,3 +1,17 @@
+// Copyright 2021 The Codefresh Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
@@ -5,21 +19,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"time"
 
-	"github.com/go-openapi/runtime/middleware"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	grpcgw "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/soheilhy/cmux"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	v1 "github.com/codefresh-io/gitops-agent/pkg/apis/manifest/v1"
-	"github.com/codefresh-io/gitops-agent/server/manifests"
-	"github.com/codefresh-io/pkg/helpers"
 	"github.com/codefresh-io/pkg/log"
 )
 
@@ -27,7 +29,6 @@ type Server struct {
 	Options
 
 	log        log.Logger
-	grpcServer *grpc.Server
 	httpServer *http.Server
 	stopChan   <-chan struct{}
 }
@@ -48,7 +49,6 @@ func NewOrDie(ctx context.Context, opts *Options) *Server {
 		stopChan: ctx.Done(),
 	}
 
-	s.grpcServer = s.newGRPCServer()
 	s.httpServer = s.newHTTPServer(ctx)
 
 	return s
@@ -75,82 +75,16 @@ func (s *Server) Run() {
 		s.log.Fatalf("failed to create listener: %s", err)
 	}
 
-	tcpMux := cmux.New(lis)
-
-	httpL := tcpMux.Match(cmux.HTTP1Fast())
-	grpcL := tcpMux.Match(cmux.Any())
-
 	s.log.WithField("address", address).Info("handling grpc and http requests")
 
-	go func() { s.checkServerErr(s.grpcServer.Serve(grpcL)) }()
-	go func() { s.checkServerErr(s.httpServer.Serve(httpL)) }()
-	go func() { s.checkServerErr(tcpMux.Serve()) }()
+	go func() { s.checkServerErr(s.httpServer.Serve(lis)) }()
 
 	<-s.stopChan
-}
-
-func (s *Server) newGRPCServer() *grpc.Server {
-	uInterceptors := []grpc.UnaryServerInterceptor{
-		grpc_prometheus.UnaryServerInterceptor,
-		s.PanicLoggerUnaryServerInterceptor(),
-	}
-	sInterceptors := []grpc.StreamServerInterceptor{
-		grpc_prometheus.StreamServerInterceptor,
-		s.PanicLoggerStreamServerInterceptor(),
-	}
-
-	logrusE, err := log.GetLogrusEntry(s.log)
-	if err != nil {
-		s.log.Warn("not using logrus logger, no logging middleware")
-	} else {
-		uInterceptors = append(uInterceptors, grpc_logrus.UnaryServerInterceptor(logrusE))
-		sInterceptors = append(sInterceptors, grpc_logrus.StreamServerInterceptor(logrusE))
-	}
-
-	sOpts := []grpc.ServerOption{
-		grpc.ConnectionTimeout(300 * time.Second),
-		grpc.MaxRecvMsgSize(MaxGRPCMessageSize),
-		grpc.MaxSendMsgSize(MaxGRPCMessageSize),
-		grpc.ChainUnaryInterceptor(grpc_middleware.ChainUnaryServer(uInterceptors...)),
-		grpc.ChainStreamInterceptor(grpc_middleware.ChainStreamServer(sInterceptors...)),
-	}
-
-	grpcS := grpc.NewServer(sOpts...)
-
-	v1.RegisterManifestServiceServer(grpcS, &manifests.Server{})
-
-	grpc_prometheus.Register(grpcS)
-	reflection.Register(grpcS)
-
-	return grpcS
 }
 
 func (s *Server) newHTTPServer(ctx context.Context) *http.Server {
 	addr := fmt.Sprintf(":%d", s.Port)
 	mux := http.NewServeMux()
-
-	dialOps := []grpc.DialOption{
-		grpc.WithInsecure(),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(MaxGRPCMessageSize),
-			grpc.MaxCallSendMsgSize(MaxGRPCMessageSize),
-		),
-		grpc.WithUserAgent("grpc-gateway"),
-	}
-
-	gwmux := grpcgw.NewServeMux(
-		grpcgw.WithMarshalerOption(grpcgw.MIMEWildcard, &grpcgw.JSONBuiltin{}),
-	)
-
-	helpers.Die(v1.RegisterManifestServiceHandlerFromEndpoint(ctx, gwmux, addr, dialOps))
-
-	mux.Handle("/api/", gwmux)
-	mux.Handle("/", http.FileServer(http.Dir(StaticAssetsPath)))
-	mux.Handle("/swagger-ui", middleware.Redoc(middleware.RedocOpts{
-		BasePath: "/",
-		Path:     "/swagger-ui",
-		SpecURL:  "/swagger.json",
-	}, http.NotFoundHandler()))
 
 	return &http.Server{Addr: addr, Handler: mux}
 }
